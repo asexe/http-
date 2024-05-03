@@ -71,7 +71,7 @@ if (start_pos != std::string::npos && end_pos != std::string::npos) {
     std::cout << "Received path: " << path << std::endl;
 
     // Check if the path is "/"
-    if (path == "/index.html") {
+    if (path == "/") {
         // Respond with a 200 OK response
         report = "HTTP/1.1 200 OK\r\n\r\n";
     } else {
