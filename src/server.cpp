@@ -90,10 +90,10 @@ if (start_pos != std::string::npos && end_pos != std::string::npos) {
     // Check if the path include "/" or include "/echo/"
     if (captureAfterEcho(path) != ""|| path.find("/")) {
         // Respond with a 200 OK response
-        report = "HTTP/1.1 200 OK\r\n\r\n";
-        std::cout << "Content-Type: text/plain" << std::endl;
-        std::cout << "Content-Length: "<< captureAfterEcho(path).length() << std::endl;
-        std::cout << captureAfterEcho(path) << std::endl;
+        report = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(captureAfterEcho(path).length()) + "\r\n" + captureAfterEcho(path) + "\r\n";
+        /*std::cout << "Content-Type: text/plain" << std::endl;*/
+        /*std::cout << "Content-Length: "<< captureAfterEcho(path).length() << std::endl;*/
+        /*std::cout << captureAfterEcho(path) << std::endl;*/
     } else {
         // Respond with a 404 Not Found response
         report = "HTTP/1.1 404 Not Found\r\n\r\n";
