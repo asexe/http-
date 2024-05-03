@@ -8,6 +8,23 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+std::string captureAfterEcho(const std::string& input) {
+    std::size_t echoPos = input.find("/echo/");
+    if (echoPos == std::string::npos) {
+        // 如果没有找到 /echo/，返回空字符串
+        return "";
+    }
+    // 从 /echo/ 后面开始查找空格
+    std::size_t spacePos = input.find(' ', echoPos + 6); // /echo/ 长度为6
+    if (spacePos == std::string::npos) {
+        // 如果没有找到空格，取从 /echo/ 后面到字符串末尾的部分
+        return input.substr(echoPos + 6);
+    } else {
+        // 如果找到了空格，取空格前的部分
+        return input.substr(echoPos + 6, spacePos - echoPos - 6);
+    }
+}
+
 int main(int argc, char **argv) {
   // You can use print statements as follows for debugging, they'll be visible when running tests.
 std::cout << "Logs from your program will appear here!\n";
@@ -70,10 +87,13 @@ if (start_pos != std::string::npos && end_pos != std::string::npos) {
     // Print the extracted path for debugging
     std::cout << "Received path: " << path << std::endl;
 
-    // Check if the path is "/"
-    if (path == "/") {
+    // Check if the path include "/" or include "/echo/"
+    if (captureAfterEcho(path) != ""|| path.find("/")) {
         // Respond with a 200 OK response
         report = "HTTP/1.1 200 OK\r\n\r\n";
+        std::cout << "Content-Type: text/plain" << std::endl;
+        std::cout << "Content-Length: "<< captureAfterEcho(path).length() << std::endl;
+        std::cout << captureAfterEcho(path) << std::endl;
     } else {
         // Respond with a 404 Not Found response
         report = "HTTP/1.1 404 Not Found\r\n\r\n";
