@@ -85,7 +85,7 @@ if (start_pos != std::string::npos && end_pos != std::string::npos) {
     std::string path = request.substr(start_pos + 1, end_pos - start_pos - 1);
 
     // Print the extracted path for debugging
-    std::cout << "Received path: " << path << std::endl;
+    /*std::cout << "Received path: " << path << std::endl;*/
 
     // Check if the path include "/" or include "/echo/"
     if (captureAfterEcho(path) != ""|| path.find("/")) {
