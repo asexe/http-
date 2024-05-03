@@ -83,17 +83,17 @@ size_t end_pos = request.find(" ", start_pos + 1);
 if (start_pos != std::string::npos && end_pos != std::string::npos) {
     std::string method = request.substr(0, start_pos);
     std::string path = request.substr(start_pos + 1, end_pos - start_pos - 1);
-
+    std::cout << path << std::endl;
     // Print the extracted path for debugging
     /*std::cout << "Received path: " << path << std::endl;*/
 
     // Check if the path include "/" or include "/echo/"
-    if (captureAfterEcho(path) != ""|| path.find("/")) {
+    if (captureAfterEcho(path) != ""|| path == "/"|| path == "/index.html") {
         // Respond with a 200 OK response
-        report = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(captureAfterEcho(path).length()) + "\r\n" + captureAfterEcho(path) + "\r\n";
-        /*std::cout << "Content-Type: text/plain" << std::endl;*/
-        /*std::cout << "Content-Length: "<< captureAfterEcho(path).length() << std::endl;*/
-        /*std::cout << captureAfterEcho(path) << std::endl;*/
+        report = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + std::to_string(captureAfterEcho(path).length()) + "\r\n\r\n" + captureAfterEcho(path) ;
+        std::cout << "Content-Type: text/plain" << std::endl;
+        std::cout << "Content-Length: "<< captureAfterEcho(path).length() << std::endl;
+        std::cout << captureAfterEcho(path) << std::endl;
     } else {
         // Respond with a 404 Not Found response
         report = "HTTP/1.1 404 Not Found\r\n\r\n";
