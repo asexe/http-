@@ -70,7 +70,8 @@ int main(int argc, char **argv) {
             std::string request(buffer);
 
             std::string path = extractPath(request);
-            if (path == "/index.html") {
+            // Check if the path is root or index.html
+            if (path == "/" || path == "/index.html") {
                 std::string response = "HTTP/1.1 200 OK\r\n\r\n";
                 send(client_fd, response.c_str(), response.length(), 0);
             } else {
