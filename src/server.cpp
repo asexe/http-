@@ -9,6 +9,8 @@
 #include <netdb.h>
 #include <vector>
 #include <thread>
+#include <fstream>
+#include <sstream>
 
 std::string captureAfterKey(const std::string& input) {
     std::size_t echoPos = input.find("/echo/");
@@ -62,8 +64,40 @@ int matchEcho(const std::string& path, const std::vector<std::string>& array) {
     return false;
 }
 
+// 新增函数，用于读取文件内容并返回
+std::string readFileContent(const std::string& filePath) {
+    std::ifstream fileStream(filePath, std::ios::binary | std::ios::ate);
+    if (fileStream) {
+        std::streamsize size = fileStream.tellg();
+        fileStream.seekg(0, std::ios::beg);
+
+        std::string content;
+        content.resize(size);
+        if (size > 0) {
+            fileStream.read(&content[0], size);
+        }
+        return content;
+    } else {
+        return "";
+    }
+}
+
+// 新增函数，用于读取文件内容并返回
+std::string readFileContent(const std::string& directory, const std::string& filename) {
+    std::ifstream fileStream((directory + "/" + filename).c_str(), std::ios::binary | std::ios::ate);
+    if (fileStream) {
+        std::streamsize size = fileStream.tellg();
+        fileStream.seekg(0, std::ios::beg);
+
+        std::string content((std::istreambuf_iterator<char>(fileStream)), std::istreambuf_iterator<char>());
+        return content;
+    } else {
+        return "";
+    }
+}
+
 // 新建函数 processRequest 来处理请求
-std::string processRequest(const std::string& request, const std::vector<std::string>& keyword) {
+std::string processRequest(const std::string& request, const std::string& directory, const std::vector<std::string>& keyword) {
     std::string report;
     size_t start_pos = request.find(" ");
     size_t end_pos = request.find(" ", start_pos + 1);
@@ -72,20 +106,43 @@ std::string processRequest(const std::string& request, const std::vector<std::st
         std::string method = request.substr(0, start_pos);
         std::string path = request.substr(start_pos + 1, end_pos - start_pos - 1);
         std::cout << "Received path: " << path << std::endl;
+        
+        // 提取 User-Agent 头的值
         std::string userAgent = extractUserAgent(request);
         
-        if (path == "/" || matchEcho(path, keyword)) {
-            std::string responseContent;
-            if (path == "/user-agent") {
-                responseContent = userAgent;
-            } else if (path.find("/echo/") != std::string::npos) {
-                responseContent = captureAfterKey(request);
-            }
-            
+        // 处理 /user-agent 请求
+        if (path == "/user-agent") {
+            report = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " 
+                     + std::to_string(userAgent.length()) + "\r\n\r\n" + userAgent;
+        }
+        // 处理 /echo/ 请求
+        else if (path.find("/echo/") == 0) {
+            std::string responseContent = captureAfterKey(request);
             report = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " 
                      + std::to_string(responseContent.length()) + "\r\n\r\n" + responseContent;
-        } else {
-            report = "HTTP/1.1 404 Not Found\r\n\r\n";
+        }
+        // 处理其他请求，需要directory参数
+        else {
+            if (directory.empty()) {
+                report = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+                return report;
+            }
+            
+            if (path.find("/files/") == 0) {
+                // 提取文件名
+                std::string filename = path.substr(7); // 去掉 "/files/" 前缀
+                std::string responseContent = readFileContent(directory, filename);
+                
+                // 如果文件内容不为空，设置正确的响应类型
+                if (!responseContent.empty()) {
+                    report = "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: " 
+                             + std::to_string(responseContent.length()) + "\r\n\r\n" + responseContent;
+                } else {
+                    report = "HTTP/1.1 404 Not Found\r\n\r\n";
+                }
+            } else {
+                report = "HTTP/1.1 404 Not Found\r\n\r\n";
+            }
         }
     } else {
         report = "HTTP/1.1 400 Bad Request\r\n\r\n";
@@ -94,10 +151,10 @@ std::string processRequest(const std::string& request, const std::vector<std::st
     return report;
 }
 
-void handle_client(int client_fd, struct sockaddr_in client_addr) {
+void handle_client(int client_fd, struct sockaddr_in client_addr, const std::string& directory) {
     char buffer[1024];
     std::string report;
-    std::vector<std::string> keyword = {"/echo/", "/echo/", "/index.html", "/user-agent"};
+    std::vector<std::string> keyword = {"/files/", "/echo/", "/index.html", "/user-agent"};
     int bytes_received = recv(client_fd, buffer, sizeof(buffer), 0);
     if (bytes_received < 0) {
         std::cerr << "Error receiving data from client\n";
@@ -106,7 +163,7 @@ void handle_client(int client_fd, struct sockaddr_in client_addr) {
     }
 
     std::string request(buffer, bytes_received);
-    report = processRequest(request, keyword);
+    report = processRequest(request, directory, keyword);
 
     // Send the response to the client
     send(client_fd, report.c_str(), report.length(), 0);
@@ -116,6 +173,17 @@ void handle_client(int client_fd, struct sockaddr_in client_addr) {
 int main(int argc, char **argv) {
   // You can use print statements as follows for debugging, they'll be visible when running tests.
 std::cout << "Logs from your program will appear here!\n";
+std::string directory;
+for (int i = 1; i < argc; ++i) {
+    if (std::string(argv[i]) == "--directory" && i + 1 < argc) {
+        directory = argv[++i];
+        break;
+    }
+}
+
+if (directory.empty()) {
+    std::cerr << "Error: No directory specified with --directory flag.\n";
+}
 
 
 // Uncomment this block to pass the first stage
@@ -164,7 +232,7 @@ std::cout << "Waiting for a client to connect...\n";
         }
 
         // Create a new thread to handle the client
-        std::thread client_thread(handle_client, client_fd, client_addr);
+         std::thread client_thread(handle_client, client_fd, client_addr, directory);
         client_thread.detach(); // Detach the thread to let it run independently
     }
 
