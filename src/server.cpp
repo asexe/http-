@@ -110,8 +110,11 @@ std::string processRequest(const std::string& request, const std::string& direct
         // 提取 User-Agent 头的值
         std::string userAgent = extractUserAgent(request);
         
+        if (path == "/") {
+            report = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nHello, World!";
+        }
         // 处理 /user-agent 请求
-        if (path == "/user-agent") {
+        else if (path == "/user-agent") {
             report = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " 
                      + std::to_string(userAgent.length()) + "\r\n\r\n" + userAgent;
         }
@@ -232,7 +235,7 @@ std::cout << "Waiting for a client to connect...\n";
         }
 
         // Create a new thread to handle the client
-         std::thread client_thread(handle_client, client_fd, client_addr, directory);
+        std::thread client_thread(handle_client, client_fd, client_addr, directory);
         client_thread.detach(); // Detach the thread to let it run independently
     }
 
