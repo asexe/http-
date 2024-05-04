@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
   // You can use print statements as follows for debugging, they'll be visible when running tests.
 std::cout << "Logs from your program will appear here!\n";
 std::string report;
-std::vector<std::string> keyword = {"/echo/", "/", "/echo/", "/index.html", "/user-agent"};
+std::vector<std::string> keyword = {"/echo/", "/echo/", "/index.html", "/user-agent"};
 
 
 // Uncomment this block to pass the first stage
@@ -129,7 +129,7 @@ if (start_pos != std::string::npos && end_pos != std::string::npos) {
     }*/
     std::string userAgent = extractUserAgent(request);
     // Check if the path include "/" or include "/echo/"
-    if (/*captureAfterKey(path) != ""|| path == "/"|| path == "/index.html"*/matchEcho(path, keyword)) {
+    if (/*captureAfterKey(path) != ""|| path == "/"|| path == "/index.html"*/ path ==  "/" || matchEcho(path, keyword)) {
         // Respond with a 200 OK response
         std::string responseContent;
             if (path == "/user-agent") {
