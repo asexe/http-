@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <vector>
+#include <thread>
 
 std::string captureAfterKey(const std::string& input) {
     std::size_t echoPos = input.find("/echo/");
@@ -61,11 +62,60 @@ int matchEcho(const std::string& path, const std::vector<std::string>& array) {
     return false;
 }
 
+// 新建函数 processRequest 来处理请求
+std::string processRequest(const std::string& request, const std::vector<std::string>& keyword) {
+    std::string report;
+    size_t start_pos = request.find(" ");
+    size_t end_pos = request.find(" ", start_pos + 1);
+    
+    if (start_pos != std::string::npos && end_pos != std::string::npos) {
+        std::string method = request.substr(0, start_pos);
+        std::string path = request.substr(start_pos + 1, end_pos - start_pos - 1);
+        std::cout << "Received path: " << path << std::endl;
+        std::string userAgent = extractUserAgent(request);
+        
+        if (path == "/" || matchEcho(path, keyword)) {
+            std::string responseContent;
+            if (path == "/user-agent") {
+                responseContent = userAgent;
+            } else if (path.find("/echo/") != std::string::npos) {
+                responseContent = captureAfterKey(request);
+            }
+            
+            report = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " 
+                     + std::to_string(responseContent.length()) + "\r\n\r\n" + responseContent;
+        } else {
+            report = "HTTP/1.1 404 Not Found\r\n\r\n";
+        }
+    } else {
+        report = "HTTP/1.1 400 Bad Request\r\n\r\n";
+    }
+    
+    return report;
+}
+
+void handle_client(int client_fd, struct sockaddr_in client_addr) {
+    char buffer[1024];
+    std::string report;
+    std::vector<std::string> keyword = {"/echo/", "/echo/", "/index.html", "/user-agent"};
+    int bytes_received = recv(client_fd, buffer, sizeof(buffer), 0);
+    if (bytes_received < 0) {
+        std::cerr << "Error receiving data from client\n";
+        close(client_fd);
+        return;
+    }
+
+    std::string request(buffer, bytes_received);
+    report = processRequest(request, keyword);
+
+    // Send the response to the client
+    send(client_fd, report.c_str(), report.length(), 0);
+    close(client_fd);
+}
+
 int main(int argc, char **argv) {
   // You can use print statements as follows for debugging, they'll be visible when running tests.
 std::cout << "Logs from your program will appear here!\n";
-std::string report;
-std::vector<std::string> keyword = {"/echo/", "/echo/", "/index.html", "/user-agent"};
 
 
 // Uncomment this block to pass the first stage
@@ -104,58 +154,22 @@ int client_addr_len = sizeof(client_addr);
 
 std::cout << "Waiting for a client to connect...\n";
 
-int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
-// Receive the HTTP request from the client
-char buffer[1024];
-int bytes_received = recv(client_fd, buffer, sizeof(buffer), 0);
-if (bytes_received < 0) {
-    std::cerr << "Error receiving data from client\n";
-    close(client_fd);
-    return 1;
-}
+    while (true) {
+        struct sockaddr_in client_addr;
+        int client_addr_len = sizeof(client_addr);
+        int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
+        if (client_fd < 0) {
+            std::cerr << "Error accepting connection\n";
+            continue; // Skip to the next iteration if accept fails
+        }
 
-
-// Parse the start line to extract the method, path, and HTTP version
-std::string request(buffer, bytes_received);
-size_t start_pos = request.find(" ");
-size_t end_pos = request.find(" ", start_pos + 1);
-if (start_pos != std::string::npos && end_pos != std::string::npos) {
-    std::string method = request.substr(0, start_pos);
-    std::string path = request.substr(start_pos + 1, end_pos - start_pos - 1);
-    // Print the extracted path for debugging
-    std::cout << "Received path: " << path << std::endl;
-    /*if(matchEcho(path, keyword)){
-    std::cout << "Received state: 1" << std::endl;
-    }*/
-    std::string userAgent = extractUserAgent(request);
-    // Check if the path include "/" or include "/echo/"
-    if (/*captureAfterKey(path) != ""|| path == "/"|| path == "/index.html"*/ path ==  "/" || matchEcho(path, keyword)) {
-        // Respond with a 200 OK response
-        std::string responseContent;
-            if (path == "/user-agent") {
-                // If the path is /user-agent, respond with the User-Agent header value from the request
-                responseContent = userAgent;
-            } else if (path.find("/echo/") != std::string::npos) {
-                // If the path is /echo/, capture the text after /echo/
-                responseContent = captureAfterKey(request);
-            }
-
-            // Set the response report with the correct Content-Type, Content-Length, and response content
-            report = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " 
-                     + std::to_string(responseContent.length()) + "\r\n\r\n" + responseContent;
-        } else {
-        // Respond with a 404 Not Found response
-        report = "HTTP/1.1 404 Not Found\r\n\r\n";
+        // Create a new thread to handle the client
+        std::thread client_thread(handle_client, client_fd, client_addr);
+        client_thread.detach(); // Detach the thread to let it run independently
     }
-} else {
-    // Invalid request format
-    report = "HTTP/1.1 400 Bad Request\r\n\r\n";
-}
 
+    // Close the server socket when done (not reached in this example)
+    close(server_fd);
 
-// Send the response to the client
-send(client_fd, report.c_str(), report.length(), 0);
-close(server_fd);
-
-  return 0;
+    return 0;
 }
