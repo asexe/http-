@@ -95,7 +95,43 @@ std::string readFileContent(const std::string& directory, const std::string& fil
         return "";
     }
 }
+std::string handlePostRequest(const std::string& request, const std::string& directory) {
+    std::string response;
+    std::string filename;
+    std::string fileContent;
 
+    // 查找 POST 请求正文的开始
+    size_t postHeaderEnd = request.find("\r\n\r\n") + 4;
+    if (postHeaderEnd != std::string::npos) {
+        // 获取 POST 请求正文内容
+        fileContent = request.substr(postHeaderEnd);
+
+        // 提取文件名，假设它紧跟在 "POST /files/" 之后
+        size_t filenameStart = request.find("POST /files/") + 11;
+        size_t filenameEnd = request.find(" ", filenameStart); // 假设文件名之后有一个空格
+        if (filenameEnd != std::string::npos) {
+            filename = request.substr(filenameStart, filenameEnd - filenameStart);
+
+            // 构造完整的文件路径
+            std::string filePath = directory + "/" + filename;
+
+            // 保存文件
+            std::ofstream outFile(filePath, std::ios::binary);
+            if (outFile) {
+                outFile << fileContent;
+                response = "HTTP/1.1 201 Created\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+            } else {
+                response = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+            }
+        } else {
+            response = "HTTP/1.1 400 Bad Request: Invalid filename\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+        }
+    } else {
+        response = "HTTP/1.1 400 Bad Request: Invalid POST request format\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
+    }
+
+    return response;
+}
 // 新建函数 processRequest 来处理请求
 std::string processRequest(const std::string& request, const std::string& directory, const std::vector<std::string>& keyword) {
     std::string report;
@@ -123,7 +159,14 @@ std::string processRequest(const std::string& request, const std::string& direct
             std::string responseContent = captureAfterKey(request);
             report = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " 
                      + std::to_string(responseContent.length()) + "\r\n\r\n" + responseContent;
+        }else if (method == "POST") {
+        // 确保路径以 "/files/" 开始
+        if (path.find("/files/") == 0) {
+            report = handlePostRequest(request, directory);
+        } else {
+            report = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 0\r\n\r\n";
         }
+    }
         // 处理其他请求，需要directory参数
         else {
             if (directory.empty()) {
